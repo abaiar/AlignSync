@@ -7,10 +7,10 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     DEBUG: bool = True
 
-    DATABASE_URL: str = "postgresql+asyncpg://alignsync:alignsync@localhost:5432/alignsync"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./alignsync.db"
     DATABASE_ECHO: bool = False
 
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["*"]
 
     class Config:
         env_file = ".env"

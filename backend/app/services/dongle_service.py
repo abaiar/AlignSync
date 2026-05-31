@@ -1,72 +1,105 @@
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
+from app.models import Dongle, DongleStatus
 from app.schemas.dongle import DongleCreate, DongleResponse, DongleListResponse, DongleUpdate
 
 
 async def sync_dongle(db: AsyncSession, dongle_in: DongleCreate) -> DongleResponse:
-    """同步软件锁授权信息到系统。
+    stmt = select(Dongle).where(Dongle.dongle_id == dongle_in.dongle_id)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        dongle_in: 软件锁创建数据（ID、版本、功能列表、到期日等）
+    if existing:
+        raise ValueError(f"软件锁 ID={dongle_in.dongle_id} 已存在")
 
-    Returns:
-        DongleResponse: 同步后的软件锁信息
+    dongle = Dongle(
+        dongle_id=dongle_in.dongle_id,
+        version=dongle_in.version,
+        features=dongle_in.features,
+        expiry_date=dongle_in.expiry_date,
+        status=DongleStatus.AUTHORIZED,
+    )
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    db.add(dongle)
+    try:
+        await db.commit()
+        await db.refresh(dongle)
+    except IntegrityError:
+        await db.rollback()
+        raise ValueError(f"软件锁 ID={dongle_in.dongle_id} 已存在")
+
+    return _to_response(dongle)
 
 
 async def get_dongles(
-    db: AsyncSession, skip: int = 0, limit: int = 20, status: str | None = None
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 20,
+    status: str | None = None,
 ) -> DongleListResponse:
-    """获取软件锁列表。
+    stmt = select(Dongle)
 
-    Args:
-        db: 异步数据库会话
-        skip: 分页偏移量
-        limit: 每页数量
-        status: 按状态筛选
+    if status:
+        try:
+            status_enum = DongleStatus(status)
+            stmt = stmt.where(Dongle.status == status_enum)
+        except ValueError:
+            pass
 
-    Returns:
-        DongleListResponse: 软件锁列表及总数
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar()
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    stmt = stmt.offset(skip).limit(limit).order_by(Dongle.created_at.desc())
+    result = await db.execute(stmt)
+    dongles = result.scalars().all()
+
+    return DongleListResponse(
+        total=total,
+        items=[_to_response(d) for d in dongles],
+    )
 
 
 async def get_dongle_by_sn(db: AsyncSession, dongle_id: str) -> DongleResponse | None:
-    """根据ID获取软件锁信息。
+    stmt = select(Dongle).where(Dongle.dongle_id == dongle_id)
+    result = await db.execute(stmt)
+    dongle = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        dongle_id: 软件锁ID
+    if dongle is None:
+        return None
 
-    Returns:
-        DongleResponse | None: 软件锁信息，不存在则返回None
-
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    return _to_response(dongle)
 
 
 async def update_dongle(db: AsyncSession, dongle_id: str, dongle_in: DongleUpdate) -> DongleResponse | None:
-    """更新软件锁信息。
+    stmt = select(Dongle).where(Dongle.dongle_id == dongle_id)
+    result = await db.execute(stmt)
+    dongle = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        dongle_id: 软件锁ID
-        dongle_in: 更新数据
+    if dongle is None:
+        return None
 
-    Returns:
-        DongleResponse | None: 更新后的软件锁信息
+    update_data = dongle_in.model_dump(exclude_unset=True)
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    for key, value in update_data.items():
+        setattr(dongle, key, value)
+
+    await db.commit()
+    await db.refresh(dongle)
+
+    return _to_response(dongle)
+
+
+def _to_response(dongle: Dongle) -> DongleResponse:
+    return DongleResponse(
+        id=dongle.id,
+        dongle_id=dongle.dongle_id,
+        version=dongle.version,
+        features=dongle.features if dongle.features else [],
+        expiry_date=dongle.expiry_date,
+        status=dongle.status,
+        created_at=dongle.created_at,
+        updated_at=dongle.updated_at,
+    )

@@ -10,7 +10,6 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- 设备登记表单 -->
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">登记定位仪设备</h2>
         <div class="space-y-4">
@@ -91,7 +90,6 @@
         </div>
       </div>
 
-      <!-- 设备列表 -->
       <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
           <h2 class="text-lg font-semibold text-gray-700">已登记设备</h2>
@@ -128,7 +126,6 @@
       </div>
     </div>
 
-    <!-- 追溯信息弹窗 -->
     <div v-if="showTraceModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">设备追溯信息</h3>
@@ -163,7 +160,9 @@
           <div>
             <span class="text-gray-500">相机详情</span>
             <div v-for="(cam, idx) in traceData.cameras" :key="idx" class="mt-2 p-3 bg-gray-50 rounded-md">
-              <p class="font-mono font-medium">{{ cam.sn || cam.camera_sn }}</p>
+              <p class="font-mono font-medium">{{ cam.camera_sn || cam.sn }}</p>
+              <p class="text-xs text-gray-400 mt-1">位置: {{ cam.position }}</p>
+              <p class="text-xs text-gray-400 mt-1">型号: {{ cam.model }}</p>
               <p class="text-xs text-gray-400 mt-1">标定参数: {{ JSON.stringify(cam.intrinsic_params || cam.calibration || {}) }}</p>
             </div>
           </div>
@@ -178,7 +177,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { assembleDevice, getDevices, getDeviceBySn } from '../api/device'
+import { assembleDevice, getDevices, traceDevice } from '../api/device'
 
 const form = reactive({
   device_sn: '',
@@ -294,7 +293,7 @@ async function handleTrace(deviceSn) {
   traceLoading.value = true
   traceData.value = null
   try {
-    const res = await getDeviceBySn(deviceSn)
+    const res = await traceDevice(deviceSn)
     traceData.value = res.data
   } catch (e) {
     showNotification(e._userMessage || '获取追溯信息失败')

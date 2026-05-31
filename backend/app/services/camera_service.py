@@ -1,72 +1,116 @@
+import json
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
+from app.models import Camera, CameraStatus
 from app.schemas.camera import CameraCreate, CameraResponse, CameraListResponse, CameraUpdate
 
 
 async def sync_camera(db: AsyncSession, camera_in: CameraCreate) -> CameraResponse:
-    """同步相机信息到系统库存。
+    stmt = select(Camera).where(Camera.sn == camera_in.sn)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        camera_in: 相机创建数据（SN、型号、标定参数等）
+    if existing:
+        raise ValueError(f"相机 SN={camera_in.sn} 已存在")
 
-    Returns:
-        CameraResponse: 同步后的相机信息
+    camera = Camera(
+        sn=camera_in.sn,
+        model=camera_in.model,
+        intrinsic_params=json.dumps(camera_in.intrinsic_params, ensure_ascii=False),
+        extrinsic_params=json.dumps(camera_in.extrinsic_params, ensure_ascii=False),
+        calibration_date=camera_in.calibration_date,
+        status=CameraStatus.IN_STOCK,
+    )
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    db.add(camera)
+    try:
+        await db.commit()
+        await db.refresh(camera)
+    except IntegrityError:
+        await db.rollback()
+        raise ValueError(f"相机 SN={camera_in.sn} 已存在")
+
+    return _to_response(camera)
 
 
 async def get_cameras(
-    db: AsyncSession, skip: int = 0, limit: int = 20, status: str | None = None
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 20,
+    status: str | None = None,
 ) -> CameraListResponse:
-    """获取相机列表。
+    stmt = select(Camera)
 
-    Args:
-        db: 异步数据库会话
-        skip: 分页偏移量
-        limit: 每页数量
-        status: 按状态筛选
+    if status:
+        try:
+            status_enum = CameraStatus(status)
+            stmt = stmt.where(Camera.status == status_enum)
+        except ValueError:
+            pass
 
-    Returns:
-        CameraListResponse: 相机列表及总数
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar()
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    stmt = stmt.offset(skip).limit(limit).order_by(Camera.created_at.desc())
+    result = await db.execute(stmt)
+    cameras = result.scalars().all()
+
+    return CameraListResponse(
+        total=total,
+        items=[_to_response(c) for c in cameras],
+    )
 
 
 async def get_camera_by_sn(db: AsyncSession, sn: str) -> CameraResponse | None:
-    """根据SN获取相机信息。
+    stmt = select(Camera).where(Camera.sn == sn)
+    result = await db.execute(stmt)
+    camera = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        sn: 相机序列号
+    if camera is None:
+        return None
 
-    Returns:
-        CameraResponse | None: 相机信息，不存在则返回None
-
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    return _to_response(camera)
 
 
 async def update_camera(db: AsyncSession, sn: str, camera_in: CameraUpdate) -> CameraResponse | None:
-    """更新相机信息。
+    stmt = select(Camera).where(Camera.sn == sn)
+    result = await db.execute(stmt)
+    camera = result.scalar_one_or_none()
 
-    Args:
-        db: 异步数据库会话
-        sn: 相机序列号
-        camera_in: 更新数据
+    if camera is None:
+        return None
 
-    Returns:
-        CameraResponse | None: 更新后的相机信息
+    update_data = camera_in.model_dump(exclude_unset=True)
 
-    Raises:
-        NotImplementedError: 数据库逻辑待人工编写
-    """
-    raise NotImplementedError("TODO: 由人类开发者手写 SQLAlchemy/SQL 逻辑")
+    if "intrinsic_params" in update_data:
+        camera.intrinsic_params = json.dumps(update_data["intrinsic_params"], ensure_ascii=False)
+        del update_data["intrinsic_params"]
+
+    if "extrinsic_params" in update_data:
+        camera.extrinsic_params = json.dumps(update_data["extrinsic_params"], ensure_ascii=False)
+        del update_data["extrinsic_params"]
+
+    for key, value in update_data.items():
+        setattr(camera, key, value)
+
+    await db.commit()
+    await db.refresh(camera)
+
+    return _to_response(camera)
+
+
+def _to_response(camera: Camera) -> CameraResponse:
+    return CameraResponse(
+        id=camera.id,
+        sn=camera.sn,
+        model=camera.model,
+        intrinsic_params=json.loads(camera.intrinsic_params) if isinstance(camera.intrinsic_params, str) else camera.intrinsic_params,
+        extrinsic_params=json.loads(camera.extrinsic_params) if isinstance(camera.extrinsic_params, str) else camera.extrinsic_params,
+        calibration_date=camera.calibration_date,
+        status=camera.status,
+        created_at=camera.created_at,
+        updated_at=camera.updated_at,
+    )

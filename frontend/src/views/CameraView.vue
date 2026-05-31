@@ -3,11 +3,10 @@
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-gray-800">相机管理</h1>
       <button
-        @click="handleSync"
-        :disabled="syncing"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+        @click="showSyncModal = true"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
       >
-        {{ syncing ? '同步中...' : '同步相机信息' }}
+        同步相机信息
       </button>
     </div>
 
@@ -84,11 +83,45 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showSyncModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">同步相机信息</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">相机SN</label>
+            <input v-model="syncForm.sn" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="输入相机序列号" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">相机型号</label>
+            <input v-model="syncForm.model" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="如: CAM-X100" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">内参标定数据（JSON）</label>
+            <textarea v-model="syncForm.intrinsic_params" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" placeholder='{"fx": 1000, "fy": 1000, "cx": 640, "cy": 480}'></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">外参标定数据（JSON）</label>
+            <textarea v-model="syncForm.extrinsic_params" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" placeholder='{"tx": 0, "ty": 0, "tz": 0}'></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">标定日期</label>
+            <input v-model="syncForm.calibration_date" type="date" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+        <div class="flex justify-end space-x-3 mt-6">
+          <button @click="showSyncModal = false" class="px-4 py-2 text-sm text-gray-600 border rounded-md hover:bg-gray-50">取消</button>
+          <button @click="handleSync" :disabled="syncing" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+            {{ syncing ? '同步中...' : '确认同步' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { syncCamera, getCameras } from '../api/camera'
 
 const cameras = ref([])
@@ -99,6 +132,15 @@ const skip = ref(0)
 const limit = ref(20)
 const statusFilter = ref('')
 const notification = ref(null)
+const showSyncModal = ref(false)
+
+const syncForm = reactive({
+  sn: '',
+  model: '',
+  intrinsic_params: '',
+  extrinsic_params: '',
+  calibration_date: '',
+})
 
 function showNotification(message, type = 'error') {
   notification.value = { message, type }
@@ -139,8 +181,26 @@ async function loadCameras() {
 async function handleSync() {
   syncing.value = true
   try {
-    await syncCamera()
+    let intrinsicParams = {}
+    let extrinsicParams = {}
+    try {
+      intrinsicParams = JSON.parse(syncForm.intrinsic_params || '{}')
+    } catch { intrinsicParams = {} }
+    try {
+      extrinsicParams = JSON.parse(syncForm.extrinsic_params || '{}')
+    } catch { extrinsicParams = {} }
+
+    const payload = {
+      sn: syncForm.sn,
+      model: syncForm.model,
+      intrinsic_params: intrinsicParams,
+      extrinsic_params: extrinsicParams,
+      calibration_date: syncForm.calibration_date ? new Date(syncForm.calibration_date).toISOString() : new Date().toISOString(),
+    }
+    await syncCamera(payload)
+    showSyncModal.value = false
     showNotification('相机信息同步成功', 'success')
+    Object.assign(syncForm, { sn: '', model: '', intrinsic_params: '', extrinsic_params: '', calibration_date: '' })
     await loadCameras()
   } catch (e) {
     showNotification(e._userMessage || '同步失败')

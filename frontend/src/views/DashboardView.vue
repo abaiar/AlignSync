@@ -22,7 +22,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getDashboardStats } from '../api/dashboard'
 
 const statCards = ref([
   { title: '相机在库', value: '-', color: 'text-blue-600' },
@@ -30,4 +31,21 @@ const statCards = ref([
   { title: '待处理订单', value: '-', color: 'text-amber-600' },
   { title: '已登记设备', value: '-', color: 'text-green-600' },
 ])
+
+async function loadStats() {
+  try {
+    const res = await getDashboardStats()
+    const data = res.data
+    statCards.value = [
+      { title: '相机在库', value: data.camera_in_stock ?? '-', color: 'text-blue-600' },
+      { title: '软件锁在库', value: data.dongle_in_stock ?? '-', color: 'text-purple-600' },
+      { title: '待处理订单', value: data.pending_orders ?? '-', color: 'text-amber-600' },
+      { title: '已登记设备', value: data.total_devices ?? '-', color: 'text-green-600' },
+    ]
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(loadStats)
 </script>

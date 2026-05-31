@@ -21,3 +21,9 @@ async def get_db() -> AsyncSession:
             yield session
         finally:
             await session.close()
+
+
+async def init_db():
+    from app.models import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

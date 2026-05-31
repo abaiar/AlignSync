@@ -21,11 +21,8 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 async def create_order(order_in: OrderCreate, db: AsyncSession = Depends(get_db)):
     try:
         return await order_service.create_order(db, order_in)
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", response_model=OrderListResponse)
@@ -36,27 +33,15 @@ async def get_orders(
     tenant_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        return await order_service.get_orders(db, skip=skip, limit=limit, status=status, tenant_id=tenant_id)
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    return await order_service.get_orders(db, skip=skip, limit=limit, status=status, tenant_id=tenant_id)
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
-    try:
-        result = await order_service.get_order(db, order_id)
-        if result is None:
-            raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
-        return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    result = await order_service.get_order(db, order_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
+    return result
 
 
 @router.post("/{order_id}/confirm", response_model=OrderResponse)
@@ -66,11 +51,8 @@ async def confirm_order(order_id: int, data: OrderConfirmRequest, db: AsyncSessi
         if result is None:
             raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
         return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{order_id}/pay", response_model=OrderResponse)
@@ -80,11 +62,8 @@ async def pay_order(order_id: int, data: OrderPayRequest, db: AsyncSession = Dep
         if result is None:
             raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
         return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{order_id}/confirm-payment", response_model=OrderResponse)
@@ -94,11 +73,8 @@ async def confirm_payment(order_id: int, data: OrderPaymentConfirmRequest, db: A
         if result is None:
             raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
         return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{order_id}/ship", response_model=OrderResponse)
@@ -108,11 +84,8 @@ async def ship_order(order_id: int, data: OrderShipRequest, db: AsyncSession = D
         if result is None:
             raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
         return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{order_id}/receive", response_model=OrderResponse)
@@ -122,8 +95,5 @@ async def receive_order(order_id: int, data: OrderReceiveRequest, db: AsyncSessi
         if result is None:
             raise HTTPException(status_code=404, detail=f"订单 ID={order_id} 不存在")
         return result
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501,
-            detail="该功能的数据库逻辑尚未实现，待人工编写 SQLAlchemy/SQL 逻辑",
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
