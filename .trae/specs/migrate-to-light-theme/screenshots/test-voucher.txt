@@ -1,0 +1,5 @@
+AlignSync Payment Voucher Test
+Order: PO202606240002
+Amount: ¥3,500.00
+Date: 2026-06-24
+Method: 银行转账

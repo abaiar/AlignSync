@@ -62,13 +62,13 @@
 
 ## 阶段五：代码推送
 
-- [ ] Task 9: 初始化 git 仓库并强制推送至 GitHub
-  - [ ] SubTask 9.1: 在项目根目录执行 `git init`，配置默认分支为 main
-  - [ ] SubTask 9.2: 验证 `.gitignore` 已排除 `.env`、`node_modules`、`__pycache__`、`uploads/` 等敏感与临时文件
-  - [ ] SubTask 9.3: 执行 `git add .` 与 `git commit -m "Initial commit: AlignSync system"`
-  - [ ] SubTask 9.4: 添加远程 `git remote add origin https://github.com/abaiar/AlignSync.git`
-  - [ ] SubTask 9.5: 执行 `git push -f origin main` 强制推送（**需用户明确确认**）
-  - [ ] 验证：远程仓库 `https://github.com/abaiar/AlignSync` 内容与本地一致
+- [x] Task 9: 初始化 git 仓库并强制推送至 GitHub
+  - [x] SubTask 9.1: 在项目根目录执行 `git init -b main`，配置默认分支为 main
+  - [x] SubTask 9.2: 验证 `.gitignore` 已排除 `.env`、`node_modules`、`__pycache__`、`uploads/` 等敏感与临时文件
+  - [x] SubTask 9.3: 执行 `git add .` 与 `git commit`（138 文件，22527 行）
+  - [x] SubTask 9.4: 添加远程 `git remote add origin https://github.com/abaiar/AlignSync.git`
+  - [x] SubTask 9.5: 执行 `git push -f origin main` 强制推送成功（a1212e9 → 4ef2989）
+  - [x] 验证：远程仓库 `https://github.com/abaiar/AlignSync` 内容与本地一致
 
 # Task Dependencies
 
