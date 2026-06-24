@@ -1,252 +1,296 @@
 <template>
   <div>
+    <!-- Header -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">采购订单管理</h1>
-      <button
-        @click="openCreateModal"
-        class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">采购订单管理</h1>
+      <BaseButton variant="warning" icon="plus" @click="openCreateModal">新建订单</BaseButton>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="mb-4">
+      <BaseFilterBar>
+        <div class="w-64">
+          <BaseSearchInput v-model="searchQuery" placeholder="搜索PO编号" />
+        </div>
+        <div class="w-40">
+          <BaseSelect v-model="statusFilter" placeholder="全部状态" :options="statusOptions" />
+        </div>
+      </BaseFilterBar>
+    </div>
+
+    <!-- Table -->
+    <BaseCard title="订单列表" :padding="false">
+      <BaseTable
+        :columns="columns"
+        :data="displayOrders"
+        :loading="loading"
+        row-key="id"
+        @sort="handleSort"
       >
-        新建订单
-      </button>
-    </div>
-
-    <div v-if="notification" :class="[
-      'mb-4 p-4 rounded-lg text-sm',
-      notification.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
-    ]">
-      {{ notification.message }}
-    </div>
-
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-700">订单列表</h2>
-        <select
-          v-model="statusFilter"
-          @change="loadOrders"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">全部状态</option>
-          <option value="待确认">待确认</option>
-          <option value="已确认">已确认</option>
-          <option value="待收款">待收款</option>
-          <option value="已收款">已收款</option>
-          <option value="已发货">已发货</option>
-          <option value="已完成">已完成</option>
-          <option value="已取消">已取消</option>
-        </select>
-      </div>
-
-      <div v-if="loading" class="p-12 text-center text-gray-400">加载中...</div>
-
-      <div v-else-if="orders.length === 0" class="p-12 text-center text-gray-400">
-        暂无订单数据，请点击"新建订单"按钮
-      </div>
-
-      <table v-else class="w-full">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO编号</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">租户ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总额</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          <tr v-for="order in orders" :key="order.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ order.po_number }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ order.tenant_id }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900 font-medium">¥{{ order.total_amount?.toFixed(2) }}</td>
-            <td class="px-6 py-4">
-              <span :class="statusClass(order.status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                {{ order.status }}
-              </span>
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(order.created_at) }}</td>
-            <td class="px-6 py-4 text-sm space-x-2">
-              <button
-                v-if="order.status === '待确认'"
-                @click="openActionModal(order, 'confirm')"
-                class="text-blue-600 hover:text-blue-800 font-medium"
-              >确认订单</button>
-              <button
-                v-if="order.status === '已确认' || order.status === '待收款'"
-                @click="openActionModal(order, 'pay')"
-                class="text-green-600 hover:text-green-800 font-medium"
-              >上传付款</button>
-              <button
-                v-if="order.status === '待收款'"
-                @click="openActionModal(order, 'confirmPayment')"
-                class="text-purple-600 hover:text-purple-800 font-medium"
-              >确认收款</button>
-              <button
-                v-if="order.status === '已收款'"
-                @click="openActionModal(order, 'ship')"
-                class="text-amber-600 hover:text-amber-800 font-medium"
-              >发货</button>
-              <button
-                v-if="order.status === '已发货'"
-                @click="openActionModal(order, 'receive')"
-                class="text-teal-600 hover:text-teal-800 font-medium"
-              >确认收货</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div v-if="orders.length > 0" class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-        <span class="text-sm text-gray-500">共 {{ total }} 条记录</span>
-        <div class="flex space-x-2">
-          <button @click="skip > 0 && (skip -= limit) && loadOrders()" :disabled="skip === 0" class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50">上一页</button>
-          <button @click="orders.length >= limit && (skip += limit) && loadOrders()" :disabled="orders.length < limit" class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50">下一页</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 新建订单弹窗 -->
-    <div v-if="showCreateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">新建采购订单</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">租户ID（生产厂）</label>
-            <input v-model.number="createForm.tenant_id" type="number" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="输入租户ID" />
+        <template #col-po_number="{ row }">
+          <span class="font-mono text-gray-900 dark:text-gray-100">{{ row.po_number }}</span>
+        </template>
+        <template #col-total_amount="{ row }">
+          <span class="font-medium text-gray-900 dark:text-gray-100">¥{{ (row.total_amount ?? 0).toFixed(2) }}</span>
+        </template>
+        <template #col-status="{ row }">
+          <BaseBadge :text="row.status" :color="statusColorMap[row.status] || 'gray'" />
+        </template>
+        <template #col-created_at="{ row }">
+          <span class="text-gray-600 dark:text-gray-300">{{ formatDate(row.created_at) }}</span>
+        </template>
+        <template #col-actions="{ row }">
+          <div class="flex items-center gap-2">
+            <BaseButton
+              v-if="row.status === '待确认'"
+              variant="primary"
+              size="sm"
+              @click="openActionModal(row, 'confirm')"
+            >确认订单</BaseButton>
+            <BaseButton
+              v-if="row.status === '已确认' || row.status === '待收款'"
+              variant="success"
+              size="sm"
+              @click="openActionModal(row, 'pay')"
+            >上传付款</BaseButton>
+            <BaseButton
+              v-if="row.status === '待收款'"
+              variant="default"
+              size="sm"
+              @click="handleConfirmPayment(row)"
+            >确认收款</BaseButton>
+            <BaseButton
+              v-if="row.status === '已收款'"
+              variant="warning"
+              size="sm"
+              @click="openActionModal(row, 'ship')"
+            >发货</BaseButton>
+            <BaseButton
+              v-if="row.status === '已发货'"
+              variant="default"
+              size="sm"
+              @click="handleReceive(row)"
+            >确认收货</BaseButton>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
-            <textarea v-model="createForm.remark" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" rows="2" placeholder="可选"></textarea>
+        </template>
+        <template #empty>
+          <BaseEmptyState
+            icon="order"
+            :title="emptyTitle"
+            :description="emptyDescription"
+          />
+        </template>
+      </BaseTable>
+      <div v-if="total > 0" class="border-t border-gray-200 dark:border-slate-700">
+        <BasePagination
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          @change="onPageChange"
+        />
+      </div>
+    </BaseCard>
+
+    <!-- Create order modal -->
+    <BaseModal v-model="showCreateModal" title="新建采购订单" size="lg">
+      <div class="space-y-4">
+        <BaseInput
+          v-model="createForm.tenant_id"
+          label="租户ID（生产厂）"
+          type="number"
+          placeholder="输入租户ID"
+          required
+          :error="errors.tenant_id"
+        />
+        <BaseTextarea v-model="createForm.remark" label="备注" placeholder="可选" :rows="2" />
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">订单明细</label>
+            <BaseButton variant="ghost" size="sm" icon="plus" @click="addCreateItem">添加明细</BaseButton>
           </div>
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-sm font-medium text-gray-700">订单明细</label>
-              <button @click="addCreateItem" class="text-xs text-amber-600 hover:text-amber-800 font-medium">+ 添加明细</button>
+          <div v-for="(item, idx) in createForm.items" :key="idx" class="flex items-center gap-2 mb-2">
+            <div class="flex-1">
+              <BaseInput v-model="item.product_model" placeholder="产品型号" />
             </div>
-            <div v-for="(item, idx) in createForm.items" :key="idx" class="flex space-x-2 mb-2">
-              <input v-model="item.product_model" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="产品型号" />
-              <input v-model.number="item.quantity" type="number" class="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="数量" min="1" />
-              <input v-model.number="item.unit_price" type="number" class="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="单价" min="0" step="0.01" />
-              <button @click="createForm.items.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-sm px-2">✕</button>
+            <div class="w-20">
+              <BaseInput v-model="item.quantity" type="number" placeholder="数量" />
             </div>
+            <div class="w-24">
+              <BaseInput v-model="item.unit_price" type="number" placeholder="单价" />
+            </div>
+            <BaseButton variant="ghost" size="sm" icon="close" @click="createForm.items.splice(idx, 1)" />
           </div>
-        </div>
-        <div class="flex justify-end space-x-3 mt-6">
-          <button @click="showCreateModal = false" class="px-4 py-2 text-sm text-gray-600 border rounded-md hover:bg-gray-50">取消</button>
-          <button @click="handleCreate" :disabled="submitting" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50">
-            {{ submitting ? '提交中...' : '提交订单' }}
-          </button>
+          <p v-if="errors.items" class="mt-1 text-xs text-red-500">{{ errors.items }}</p>
         </div>
       </div>
-    </div>
-
-    <!-- 状态操作弹窗 -->
-    <div v-if="showActionModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ actionTitle }}</h3>
-
-        <!-- 确认订单 -->
-        <div v-if="actionType === 'confirm'" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">确认意见</label>
-            <textarea v-model="actionForm.opinion" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" rows="3" placeholder="可选"></textarea>
-          </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <BaseButton variant="default" @click="showCreateModal = false">取消</BaseButton>
+          <BaseButton variant="warning" :loading="submitting" @click="handleCreate">提交订单</BaseButton>
         </div>
+      </template>
+    </BaseModal>
 
-        <!-- 上传付款 -->
-        <div v-if="actionType === 'pay'" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">付款金额</label>
-            <input v-model.number="actionForm.payment_amount" type="number" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" min="0" step="0.01" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label>
-            <input v-model="actionForm.payment_method" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="如: 银行转账" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">付款凭证</label>
-            <input v-model="actionForm.payment_voucher" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="截图URL或描述" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">付款备注</label>
-            <textarea v-model="actionForm.payment_remark" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" rows="2" placeholder="可选"></textarea>
-          </div>
-        </div>
-
-        <!-- 确认收款 -->
-        <div v-if="actionType === 'confirmPayment'" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
-            <textarea v-model="actionForm.remark" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" rows="2" placeholder="可选"></textarea>
-          </div>
-        </div>
-
-        <!-- 发货 -->
-        <div v-if="actionType === 'ship'" class="space-y-4">
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-sm font-medium text-gray-700">发货相机SN</label>
-              <button @click="actionForm.camera_items.push({ camera_sn: '' })" class="text-xs text-amber-600 hover:text-amber-800 font-medium">+ 添加相机</button>
-            </div>
-            <div v-for="(item, idx) in actionForm.camera_items" :key="idx" class="flex space-x-2 mb-2">
-              <input v-model="item.camera_sn" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="相机SN" />
-              <button @click="actionForm.camera_items.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-sm px-2">✕</button>
-            </div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="block text-sm font-medium text-gray-700">发货软件锁ID</label>
-              <button @click="actionForm.dongle_ids.push('')" class="text-xs text-amber-600 hover:text-amber-800 font-medium">+ 添加软件锁</button>
-            </div>
-            <div v-for="(id, idx) in actionForm.dongle_ids" :key="idx" class="flex space-x-2 mb-2">
-              <input v-model="actionForm.dongle_ids[idx]" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="软件锁ID" />
-              <button @click="actionForm.dongle_ids.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-sm px-2">✕</button>
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">物流公司</label>
-            <input v-model="actionForm.carrier" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="如: 顺丰" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">物流单号</label>
-            <input v-model="actionForm.tracking_number" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" placeholder="输入物流单号" />
-          </div>
-        </div>
-
-        <!-- 确认收货 -->
-        <div v-if="actionType === 'receive'" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">收货备注</label>
-            <textarea v-model="actionForm.remark" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" rows="2" placeholder="可选"></textarea>
-          </div>
-        </div>
-
-        <div class="flex justify-end space-x-3 mt-6">
-          <button @click="showActionModal = false" class="px-4 py-2 text-sm text-gray-600 border rounded-md hover:bg-gray-50">取消</button>
-          <button @click="handleAction" :disabled="submitting" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50">
-            {{ submitting ? '处理中...' : '确认' }}
-          </button>
-        </div>
+    <!-- Action modal -->
+    <BaseModal v-model="showActionModal" :title="actionTitle" size="md">
+      <!-- 确认采购订单 -->
+      <div v-if="actionType === 'confirm'" class="space-y-4">
+        <BaseTextarea v-model="actionForm.opinion" label="确认意见" placeholder="可选" :rows="3" />
       </div>
-    </div>
+
+      <!-- 上传付款凭证 -->
+      <div v-else-if="actionType === 'pay'" class="space-y-4">
+        <BaseInput
+          v-model="actionForm.payment_amount"
+          label="付款金额"
+          type="number"
+          required
+        />
+        <BaseInput v-model="actionForm.payment_method" label="付款方式" placeholder="如: 银行转账" />
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">付款凭证</label>
+          <label
+            class="flex items-center justify-center gap-2 w-full border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-md px-3 py-4 text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:border-amber-400 hover:text-amber-600 transition-colors"
+          >
+            <BaseIcon name="upload" :size="18" />
+            <span>{{ voucherFile ? voucherFile.name : '点击上传付款凭证图片' }}</span>
+            <input type="file" accept="image/*" class="hidden" @change="onVoucherSelect" />
+          </label>
+          <div v-if="voucherPreview" class="mt-2">
+            <img
+              :src="voucherPreview"
+              alt="凭证预览"
+              class="max-h-40 rounded-md border border-gray-200 dark:border-slate-600"
+            />
+          </div>
+        </div>
+        <BaseTextarea v-model="actionForm.payment_remark" label="付款备注" placeholder="可选" :rows="2" />
+      </div>
+
+      <!-- 订单发货 -->
+      <div v-else-if="actionType === 'ship'" class="space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">发货相机SN</label>
+            <BaseButton variant="ghost" size="sm" icon="plus" @click="actionForm.camera_items.push({ camera_sn: '' })">添加相机</BaseButton>
+          </div>
+          <div v-for="(item, idx) in actionForm.camera_items" :key="`cam-${idx}`" class="flex items-center gap-2 mb-2">
+            <div class="flex-1">
+              <BaseInput v-model="item.camera_sn" placeholder="相机SN" />
+            </div>
+            <BaseButton variant="ghost" size="sm" icon="close" @click="actionForm.camera_items.splice(idx, 1)" />
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">发货软件锁ID</label>
+            <BaseButton variant="ghost" size="sm" icon="plus" @click="actionForm.dongle_ids.push('')">添加软件锁</BaseButton>
+          </div>
+          <div v-for="(id, idx) in actionForm.dongle_ids" :key="`dgl-${idx}`" class="flex items-center gap-2 mb-2">
+            <div class="flex-1">
+              <BaseInput v-model="actionForm.dongle_ids[idx]" placeholder="软件锁ID" />
+            </div>
+            <BaseButton variant="ghost" size="sm" icon="close" @click="actionForm.dongle_ids.splice(idx, 1)" />
+          </div>
+        </div>
+        <BaseInput v-model="actionForm.carrier" label="物流公司" placeholder="如: 顺丰" />
+        <BaseInput v-model="actionForm.tracking_number" label="物流单号" placeholder="输入物流单号" />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <BaseButton variant="default" @click="showActionModal = false">取消</BaseButton>
+          <BaseButton variant="warning" :loading="submitting" @click="handleAction">确认</BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { createOrder, getOrders, confirmOrder, payOrder, confirmPayment, shipOrder, receiveOrder } from '../api/order'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import {
+  createOrder,
+  getOrders,
+  confirmOrder,
+  payOrder,
+  confirmPayment,
+  shipOrder,
+  receiveOrder,
+  uploadVoucher,
+} from '@/api/order'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import { usePagination } from '@/composables/usePagination'
+import { useFormValidation } from '@/composables/useFormValidation'
+import BaseCard from '@/components/base/BaseCard.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import BaseTable from '@/components/base/BaseTable.vue'
+import BasePagination from '@/components/base/BasePagination.vue'
+import BaseBadge from '@/components/base/BaseBadge.vue'
+import BaseSearchInput from '@/components/base/BaseSearchInput.vue'
+import BaseFilterBar from '@/components/base/BaseFilterBar.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import BaseInput from '@/components/base/BaseInput.vue'
+import BaseTextarea from '@/components/base/BaseTextarea.vue'
+import BaseSelect from '@/components/base/BaseSelect.vue'
+import BaseEmptyState from '@/components/base/BaseEmptyState.vue'
+import BaseIcon from '@/components/base/BaseIcon.vue'
+
+const toast = useToast()
+const { confirm } = useConfirm()
+const { page, pageSize, total, skip, setPage, setTotal } = usePagination({ pageSize: 20 })
 
 const orders = ref([])
 const loading = ref(false)
 const submitting = ref(false)
-const total = ref(0)
-const skip = ref(0)
-const limit = ref(20)
+const searchQuery = ref('')
 const statusFilter = ref('')
-const notification = ref(null)
+const sortKey = ref('')
+const sortOrder = ref('')
+
 const showCreateModal = ref(false)
 const showActionModal = ref(false)
 const currentOrder = ref(null)
 const actionType = ref('')
+const actionTitle = ref('')
+const voucherFile = ref(null)
+const voucherPreview = ref(null)
+
+const statusColorMap = {
+  待确认: 'amber',
+  已确认: 'blue',
+  待收款: 'orange',
+  已收款: 'purple',
+  已发货: 'indigo',
+  已完成: 'green',
+  已取消: 'red',
+}
+
+const statusOptions = [
+  { label: '待确认', value: '待确认' },
+  { label: '已确认', value: '已确认' },
+  { label: '待收款', value: '待收款' },
+  { label: '已收款', value: '已收款' },
+  { label: '已发货', value: '已发货' },
+  { label: '已完成', value: '已完成' },
+  { label: '已取消', value: '已取消' },
+]
+
+const actionTitleMap = {
+  confirm: '确认采购订单',
+  pay: '上传付款凭证',
+  ship: '订单发货',
+}
+
+const columns = [
+  { key: 'po_number', label: 'PO编号' },
+  { key: 'tenant_id', label: '租户ID' },
+  { key: 'total_amount', label: '总额', sortable: true },
+  { key: 'status', label: '状态' },
+  { key: 'created_at', label: '创建时间', sortable: true },
+  { key: 'actions', label: '操作' },
+]
 
 const createForm = reactive({
   tenant_id: null,
@@ -258,46 +302,59 @@ const actionForm = reactive({
   opinion: '',
   payment_amount: 0,
   payment_method: '',
-  payment_voucher: '',
   payment_remark: '',
-  remark: '',
   camera_items: [{ camera_sn: '' }],
   dongle_ids: [],
   tracking_number: '',
   carrier: '',
 })
 
-const actionTitleMap = {
-  confirm: '确认采购订单',
-  pay: '上传付款凭证',
-  confirmPayment: '确认收款',
-  ship: '订单发货',
-  receive: '确认收货',
-}
+const { errors, validate, clearErrors } = useFormValidation(createForm, {
+  tenant_id: [(v) => (v === null || v === '' || v === undefined) && '请输入租户ID'],
+  items: [(v) => (!v || !v.some((i) => i.product_model)) && '至少添加一条明细并填写产品型号'],
+})
 
-const actionTitle = ref('')
-
-function showNotification(message, type = 'error') {
-  notification.value = { message, type }
-  setTimeout(() => { notification.value = null }, 5000)
-}
-
-function statusClass(status) {
-  const map = {
-    '待确认': 'bg-yellow-100 text-yellow-800',
-    '已确认': 'bg-blue-100 text-blue-800',
-    '待收款': 'bg-orange-100 text-orange-800',
-    '已收款': 'bg-purple-100 text-purple-800',
-    '已发货': 'bg-indigo-100 text-indigo-800',
-    '已完成': 'bg-green-100 text-green-800',
-    '已取消': 'bg-red-100 text-red-800',
+const displayOrders = computed(() => {
+  let result = [...orders.value]
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter((o) => o.po_number?.toLowerCase().includes(q))
   }
-  return map[status] || 'bg-gray-100 text-gray-800'
-}
+  if (sortKey.value && sortOrder.value) {
+    result.sort((a, b) => {
+      let av = a[sortKey.value]
+      let bv = b[sortKey.value]
+      if (sortKey.value === 'total_amount') {
+        av = Number(av) || 0
+        bv = Number(bv) || 0
+      } else if (sortKey.value === 'created_at') {
+        av = av ? new Date(av).getTime() : 0
+        bv = bv ? new Date(bv).getTime() : 0
+      }
+      if (av < bv) return sortOrder.value === 'asc' ? -1 : 1
+      if (av > bv) return sortOrder.value === 'asc' ? 1 : -1
+      return 0
+    })
+  }
+  return result
+})
+
+const emptyTitle = computed(() =>
+  searchQuery.value ? '未找到匹配的订单' : '暂无订单数据',
+)
+
+const emptyDescription = computed(() =>
+  searchQuery.value ? '请尝试其他PO编号' : '请点击“新建订单”按钮创建',
+)
 
 function formatDate(dt) {
   if (!dt) return '-'
   return new Date(dt).toLocaleString('zh-CN')
+}
+
+function handleSort({ key, order }) {
+  sortKey.value = key
+  sortOrder.value = order
 }
 
 function addCreateItem() {
@@ -305,7 +362,12 @@ function addCreateItem() {
 }
 
 function openCreateModal() {
-  Object.assign(createForm, { tenant_id: null, remark: '', items: [{ product_model: '', quantity: 1, unit_price: 0 }] })
+  Object.assign(createForm, {
+    tenant_id: null,
+    remark: '',
+    items: [{ product_model: '', quantity: 1, unit_price: 0 }],
+  })
+  clearErrors()
   showCreateModal.value = true
 }
 
@@ -317,45 +379,69 @@ function openActionModal(order, type) {
     opinion: '',
     payment_amount: order.total_amount || 0,
     payment_method: '',
-    payment_voucher: '',
     payment_remark: '',
-    remark: '',
     camera_items: [{ camera_sn: '' }],
     dongle_ids: [],
     tracking_number: '',
     carrier: '',
   })
+  voucherFile.value = null
+  if (voucherPreview.value) {
+    URL.revokeObjectURL(voucherPreview.value)
+    voucherPreview.value = null
+  }
   showActionModal.value = true
+}
+
+function onVoucherSelect(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (voucherPreview.value) URL.revokeObjectURL(voucherPreview.value)
+  voucherFile.value = file
+  voucherPreview.value = URL.createObjectURL(file)
+}
+
+function onPageChange(p) {
+  setPage(p)
+  loadOrders()
 }
 
 async function loadOrders() {
   loading.value = true
   try {
-    const params = { skip: skip.value, limit: limit.value }
+    const params = { skip: skip.value, limit: pageSize }
     if (statusFilter.value) params.status = statusFilter.value
     const res = await getOrders(params)
     orders.value = res.data.items
-    total.value = res.data.total
+    setTotal(res.data.total)
   } catch (e) {
-    showNotification(e._userMessage || '加载订单列表失败')
+    toast.error(e._userMessage || '加载订单列表失败')
   } finally {
     loading.value = false
   }
 }
 
 async function handleCreate() {
+  if (!validate()) return
   submitting.value = true
   try {
+    const filtered = createForm.items
+      .filter((i) => i.product_model)
+      .map((i) => ({
+        product_model: i.product_model,
+        quantity: Number(i.quantity) || 0,
+        unit_price: Number(i.unit_price) || 0,
+      }))
     await createOrder({
-      tenant_id: createForm.tenant_id,
-      items: createForm.items.filter(i => i.product_model),
+      tenant_id: Number(createForm.tenant_id),
+      items: filtered,
       remark: createForm.remark || null,
     })
     showCreateModal.value = false
-    showNotification('订单创建成功', 'success')
+    toast.success('订单创建成功')
     await loadOrders()
   } catch (e) {
-    showNotification(e._userMessage || '创建订单失败')
+    toast.error(e._userMessage || '创建订单失败')
   } finally {
     submitting.value = false
   }
@@ -365,42 +451,86 @@ async function handleAction() {
   submitting.value = true
   try {
     const id = currentOrder.value.id
-    switch (actionType.value) {
-      case 'confirm':
-        await confirmOrder(id, { opinion: actionForm.opinion || null })
-        break
-      case 'pay':
-        await payOrder(id, {
-          payment_amount: actionForm.payment_amount,
-          payment_method: actionForm.payment_method || null,
-          payment_voucher: actionForm.payment_voucher || null,
-          payment_remark: actionForm.payment_remark || null,
-        })
-        break
-      case 'confirmPayment':
-        await confirmPayment(id, { confirmed: true, remark: actionForm.remark || null })
-        break
-      case 'ship':
-        await shipOrder(id, {
-          camera_items: actionForm.camera_items.filter(i => i.camera_sn),
-          dongle_ids: actionForm.dongle_ids.filter(Boolean),
-          tracking_number: actionForm.tracking_number,
-          carrier: actionForm.carrier || null,
-        })
-        break
-      case 'receive':
-        await receiveOrder(id, { received: true, remark: actionForm.remark || null })
-        break
+    if (actionType.value === 'confirm') {
+      await confirmOrder(id, { opinion: actionForm.opinion || null })
+    } else if (actionType.value === 'pay') {
+      let voucherUrl = null
+      if (voucherFile.value) {
+        const res = await uploadVoucher(id, voucherFile.value)
+        voucherUrl = res.data.voucher_url
+      }
+      await payOrder(id, {
+        payment_amount: Number(actionForm.payment_amount),
+        payment_method: actionForm.payment_method || null,
+        payment_voucher: voucherUrl,
+        payment_remark: actionForm.payment_remark || null,
+      })
+    } else if (actionType.value === 'ship') {
+      await shipOrder(id, {
+        camera_items: actionForm.camera_items.filter((i) => i.camera_sn),
+        dongle_ids: actionForm.dongle_ids.filter(Boolean),
+        tracking_number: actionForm.tracking_number,
+        carrier: actionForm.carrier || null,
+      })
     }
     showActionModal.value = false
-    showNotification('操作成功', 'success')
+    toast.success('操作成功')
     await loadOrders()
   } catch (e) {
-    showNotification(e._userMessage || '操作失败')
+    toast.error(e._userMessage || '操作失败')
   } finally {
     submitting.value = false
   }
 }
+
+async function handleConfirmPayment(order) {
+  const ok = await confirm({
+    title: '确认收款',
+    content: `确认订单 ${order.po_number} 已收到付款？`,
+    variant: 'primary',
+  })
+  if (!ok) return
+  try {
+    await confirmPayment(order.id, { confirmed: true, remark: null })
+    toast.success('操作成功')
+    await loadOrders()
+  } catch (e) {
+    toast.error(e._userMessage || '操作失败')
+  }
+}
+
+async function handleReceive(order) {
+  const ok = await confirm({
+    title: '确认收货',
+    content: `确认订单 ${order.po_number} 已收到货物？`,
+    variant: 'primary',
+  })
+  if (!ok) return
+  try {
+    await receiveOrder(order.id, { received: true, remark: null })
+    toast.success('操作成功')
+    await loadOrders()
+  } catch (e) {
+    toast.error(e._userMessage || '操作失败')
+  }
+}
+
+watch(statusFilter, () => {
+  page.value = 1
+  loadOrders()
+})
+
+watch(showActionModal, (val) => {
+  if (!val && voucherPreview.value) {
+    URL.revokeObjectURL(voucherPreview.value)
+    voucherPreview.value = null
+    voucherFile.value = null
+  }
+})
+
+onBeforeUnmount(() => {
+  if (voucherPreview.value) URL.revokeObjectURL(voucherPreview.value)
+})
 
 onMounted(loadOrders)
 </script>

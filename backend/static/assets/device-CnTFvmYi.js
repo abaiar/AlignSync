@@ -1,0 +1,1 @@
+import{a as e}from"./BaseBadge-BkPQUx3G.js";var t=t=>e.post(`/devices/assemble`,t),n=t=>e.get(`/devices`,{params:t}),r=t=>e.get(`/devices/${t}/trace`);export{n,r,t};

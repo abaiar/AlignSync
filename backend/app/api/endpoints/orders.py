@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -15,6 +18,12 @@ from app.schemas.order import (
 from app.services import order_service
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+VOUCHER_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "static", "vouchers")
+)
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
 @router.post("", response_model=OrderResponse, status_code=201)
@@ -97,3 +106,19 @@ async def receive_order(order_id: int, data: OrderReceiveRequest, db: AsyncSessi
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{order_id}/voucher")
+async def upload_voucher(order_id: int, file: UploadFile = File(...)):
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="仅支持 JPG/PNG/WebP/GIF 图片格式")
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="文件大小不能超过 5MB")
+    os.makedirs(VOUCHER_DIR, exist_ok=True)
+    ext = os.path.splitext(file.filename or "")[1] or ".jpg"
+    filename = f"voucher_{order_id}_{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(VOUCHER_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(contents)
+    return {"voucher_url": f"/vouchers/{filename}"}

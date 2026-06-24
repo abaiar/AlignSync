@@ -10,7 +10,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./alignsync.db"
     DATABASE_ECHO: bool = False
 
-    CORS_ORIGINS: list[str] = ["*"]
+    # Security: explicit origin allowlist (never combine ["*"] with credentials).
+    # Frontend is same-origin in production (served by this backend); dev uses the Vite proxy.
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
 
     class Config:
         env_file = ".env"

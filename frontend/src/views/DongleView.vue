@@ -1,143 +1,156 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">软件锁管理</h1>
-      <button
-        @click="showSyncModal = true"
-        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">软件锁管理</h1>
+      <BaseButton variant="primary" icon="plus" @click="openSyncModal">同步授权信息</BaseButton>
+    </div>
+
+    <BaseCard title="软件锁列表" :padding="false">
+      <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+        <BaseFilterBar>
+          <div class="w-64">
+            <BaseSearchInput v-model="keyword" placeholder="搜索 软件锁ID / 版本" />
+          </div>
+          <div class="w-40">
+            <BaseSelect
+              v-model="statusFilter"
+              :options="statusOptions"
+              placeholder="全部状态"
+            />
+          </div>
+        </BaseFilterBar>
+      </div>
+
+      <BaseTable
+        :columns="columns"
+        :data="filteredDongles"
+        :loading="loading"
+        row-key="id"
+        @sort="onSort"
       >
-        同步授权信息
-      </button>
-    </div>
+        <template #col-dongle_id="{ row }">
+          <span class="font-mono">{{ row.dongle_id }}</span>
+        </template>
+        <template #col-features="{ row }">
+          <template v-if="row.features && row.features.length">
+            <BaseBadge
+              v-for="f in row.features"
+              :key="f"
+              :text="f"
+              color="purple"
+              class="mr-1 mb-1"
+            />
+          </template>
+          <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+        </template>
+        <template #col-status="{ row }">
+          <BaseBadge :text="row.status" :color="statusColor(row.status)" />
+        </template>
+        <template #col-expiry_date="{ row }">
+          {{ formatDate(row.expiry_date) }}
+        </template>
+        <template #col-created_at="{ row }">
+          {{ formatDate(row.created_at) }}
+        </template>
+        <template #empty>
+          <BaseEmptyState
+            icon="dongle"
+            title="暂无软件锁数据"
+            description="请点击「同步授权信息」按钮录入"
+          />
+        </template>
+      </BaseTable>
 
-    <div v-if="notification" :class="[
-      'mb-4 p-4 rounded-lg text-sm',
-      notification.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
-    ]">
-      {{ notification.message }}
-    </div>
+      <template #footer>
+        <BasePagination
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          @change="onPageChange"
+        />
+      </template>
+    </BaseCard>
 
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-700">软件锁列表</h2>
-        <select
-          v-model="statusFilter"
-          @change="loadDongles"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">全部状态</option>
-          <option value="已授权">已授权</option>
-          <option value="在库">在库</option>
-          <option value="已发货">已发货</option>
-          <option value="已使用">已使用</option>
-          <option value="已退货">已退货</option>
-        </select>
+    <BaseModal v-model="showSyncModal" title="同步软件锁授权信息" size="md">
+      <div class="space-y-4">
+        <BaseInput
+          v-model="syncForm.dongle_id"
+          label="软件锁ID"
+          placeholder="输入软件锁ID"
+          required
+          :error="errors.dongle_id"
+        />
+        <BaseInput
+          v-model="syncForm.version"
+          label="软件版本"
+          placeholder="如: v3.2.1"
+          required
+          :error="errors.version"
+        />
+        <BaseInput
+          v-model="syncForm.featuresStr"
+          label="授权功能（逗号分隔）"
+          placeholder="如: 3D定位,高级测量"
+        />
+        <BaseInput
+          v-model="syncForm.expiry_date"
+          label="授权到期日"
+          type="date"
+        />
       </div>
-
-      <div v-if="loading" class="p-12 text-center text-gray-400">加载中...</div>
-
-      <div v-else-if="dongles.length === 0" class="p-12 text-center text-gray-400">
-        暂无软件锁数据，请点击"同步授权信息"按钮
-      </div>
-
-      <table v-else class="w-full">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">内部ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">软件锁ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">版本</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">授权功能</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">到期日</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入库时间</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          <tr v-for="dongle in dongles" :key="dongle.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm text-gray-900">{{ dongle.id }}</td>
-            <td class="px-6 py-4 text-sm font-mono text-gray-900">{{ dongle.dongle_id }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ dongle.version }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">
-              <span
-                v-for="f in dongle.features"
-                :key="f"
-                class="inline-block bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-xs mr-1 mb-1"
-              >{{ f }}</span>
-              <span v-if="!dongle.features?.length" class="text-gray-400">-</span>
-            </td>
-            <td class="px-6 py-4">
-              <span :class="statusClass(dongle.status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                {{ dongle.status }}
-              </span>
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(dongle.expiry_date) }}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(dongle.created_at) }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div v-if="dongles.length > 0" class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-        <span class="text-sm text-gray-500">共 {{ total }} 条记录</span>
-        <div class="flex space-x-2">
-          <button
-            @click="skip > 0 && (skip -= limit) && loadDongles()"
-            :disabled="skip === 0"
-            class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
-          >上一页</button>
-          <button
-            @click="dongles.length >= limit && (skip += limit) && loadDongles()"
-            :disabled="dongles.length < limit"
-            class="px-3 py-1 text-sm border rounded-md disabled:opacity-50 hover:bg-gray-50"
-          >下一页</button>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <BaseButton variant="ghost" @click="showSyncModal = false">取消</BaseButton>
+          <BaseButton variant="primary" :loading="syncing" @click="handleSync">
+            确认同步
+          </BaseButton>
         </div>
-      </div>
-    </div>
-
-    <div v-if="showSyncModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">同步软件锁授权信息</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">软件锁ID</label>
-            <input v-model="syncForm.dongle_id" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="输入软件锁ID" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">软件版本</label>
-            <input v-model="syncForm.version" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="如: v3.2.1" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">授权功能（逗号分隔）</label>
-            <input v-model="syncForm.featuresStr" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="如: 3D定位,高级测量" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">授权到期日</label>
-            <input v-model="syncForm.expiry_date" type="date" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          </div>
-        </div>
-        <div class="flex justify-end space-x-3 mt-6">
-          <button @click="showSyncModal = false" class="px-4 py-2 text-sm text-gray-600 border rounded-md hover:bg-gray-50">取消</button>
-          <button @click="handleSync" :disabled="syncing" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50">
-            {{ syncing ? '同步中...' : '确认同步' }}
-          </button>
-        </div>
-      </div>
-    </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { syncDongle, getDongles } from '../api/dongle'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { syncDongle, getDongles } from '@/api/dongle'
+import BaseCard from '@/components/base/BaseCard.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import BaseTable from '@/components/base/BaseTable.vue'
+import BasePagination from '@/components/base/BasePagination.vue'
+import BaseBadge from '@/components/base/BaseBadge.vue'
+import BaseSearchInput from '@/components/base/BaseSearchInput.vue'
+import BaseFilterBar from '@/components/base/BaseFilterBar.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import BaseInput from '@/components/base/BaseInput.vue'
+import BaseSelect from '@/components/base/BaseSelect.vue'
+import BaseEmptyState from '@/components/base/BaseEmptyState.vue'
+import { useToast } from '@/composables/useToast'
+import { usePagination } from '@/composables/usePagination'
+import { useFormValidation } from '@/composables/useFormValidation'
+
+const toast = useToast()
+const { page, pageSize, total, skip, setPage, setTotal } = usePagination({ pageSize: 20 })
 
 const dongles = ref([])
 const loading = ref(false)
 const syncing = ref(false)
-const total = ref(0)
-const skip = ref(0)
-const limit = ref(20)
+const keyword = ref('')
 const statusFilter = ref('')
-const notification = ref(null)
 const showSyncModal = ref(false)
+const sortKey = ref('')
+const sortOrder = ref('')
+
+const statusOptions = ['已授权', '在库', '已发货', '已使用', '已退货']
+
+const columns = [
+  { key: 'id', label: '内部ID' },
+  { key: 'dongle_id', label: '软件锁ID', sortable: true },
+  { key: 'version', label: '版本' },
+  { key: 'features', label: '授权功能' },
+  { key: 'status', label: '状态' },
+  { key: 'expiry_date', label: '到期日' },
+  { key: 'created_at', label: '入库时间' },
+]
 
 const syncForm = reactive({
   dongle_id: '',
@@ -146,20 +159,45 @@ const syncForm = reactive({
   expiry_date: '',
 })
 
-function showNotification(message, type = 'error') {
-  notification.value = { message, type }
-  setTimeout(() => { notification.value = null }, 5000)
+const rules = {
+  dongle_id: [(v) => !v && '请输入软件锁ID'],
+  version: [(v) => !v && '请输入软件版本'],
 }
 
-function statusClass(status) {
-  const map = {
-    '已授权': 'bg-purple-100 text-purple-800',
-    '在库': 'bg-green-100 text-green-800',
-    '已发货': 'bg-blue-100 text-blue-800',
-    '已使用': 'bg-gray-100 text-gray-800',
-    '已退货': 'bg-red-100 text-red-800',
+const { errors, validate, clearErrors } = useFormValidation(syncForm, rules)
+
+const filteredDongles = computed(() => {
+  let list = dongles.value
+  if (keyword.value) {
+    const kw = keyword.value.toLowerCase()
+    list = list.filter((d) =>
+      (d.dongle_id && d.dongle_id.toLowerCase().includes(kw)) ||
+      (d.version && d.version.toLowerCase().includes(kw)),
+    )
   }
-  return map[status] || 'bg-gray-100 text-gray-800'
+  if (sortKey.value && sortOrder.value) {
+    const key = sortKey.value
+    const order = sortOrder.value === 'asc' ? 1 : -1
+    list = [...list].sort((a, b) => {
+      const va = a[key] ?? ''
+      const vb = b[key] ?? ''
+      if (va < vb) return -1 * order
+      if (va > vb) return 1 * order
+      return 0
+    })
+  }
+  return list
+})
+
+function statusColor(status) {
+  const map = {
+    '已授权': 'purple',
+    '在库': 'green',
+    '已发货': 'blue',
+    '已使用': 'gray',
+    '已退货': 'red',
+  }
+  return map[status] || 'gray'
 }
 
 function formatDate(dt) {
@@ -167,41 +205,78 @@ function formatDate(dt) {
   return new Date(dt).toLocaleString('zh-CN')
 }
 
+function onSort({ key, order }) {
+  sortKey.value = key
+  sortOrder.value = order
+}
+
+function onPageChange(p) {
+  setPage(p)
+  loadDongles()
+}
+
+function openSyncModal() {
+  Object.assign(syncForm, {
+    dongle_id: '',
+    version: '',
+    featuresStr: '',
+    expiry_date: '',
+  })
+  clearErrors()
+  showSyncModal.value = true
+}
+
 async function loadDongles() {
   loading.value = true
   try {
-    const params = { skip: skip.value, limit: limit.value }
+    const params = { skip: skip.value, limit: pageSize }
     if (statusFilter.value) params.status = statusFilter.value
     const res = await getDongles(params)
     dongles.value = res.data.items
-    total.value = res.data.total
+    setTotal(res.data.total)
   } catch (e) {
-    showNotification(e._userMessage || '加载软件锁列表失败')
+    toast.error(e._userMessage || '加载软件锁列表失败')
   } finally {
     loading.value = false
   }
 }
 
 async function handleSync() {
+  if (!validate()) return
   syncing.value = true
   try {
     const payload = {
       dongle_id: syncForm.dongle_id,
       version: syncForm.version,
-      features: syncForm.featuresStr ? syncForm.featuresStr.split(',').map(s => s.trim()).filter(Boolean) : [],
-      expiry_date: syncForm.expiry_date ? new Date(syncForm.expiry_date).toISOString() : new Date().toISOString(),
+      features: syncForm.featuresStr
+        ? syncForm.featuresStr.split(',').map((s) => s.trim()).filter(Boolean)
+        : [],
+      expiry_date: syncForm.expiry_date
+        ? new Date(syncForm.expiry_date).toISOString()
+        : new Date().toISOString(),
     }
     await syncDongle(payload)
     showSyncModal.value = false
-    showNotification('软件锁授权信息同步成功', 'success')
-    Object.assign(syncForm, { dongle_id: '', version: '', featuresStr: '', expiry_date: '' })
+    toast.success('软件锁授权信息同步成功')
+    Object.assign(syncForm, {
+      dongle_id: '',
+      version: '',
+      featuresStr: '',
+      expiry_date: '',
+    })
+    clearErrors()
     await loadDongles()
   } catch (e) {
-    showNotification(e._userMessage || '同步失败')
+    toast.error(e._userMessage || '同步失败')
   } finally {
     syncing.value = false
   }
 }
+
+watch(statusFilter, () => {
+  setPage(1)
+  loadDongles()
+})
 
 onMounted(loadDongles)
 </script>

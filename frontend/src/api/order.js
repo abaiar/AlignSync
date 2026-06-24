@@ -15,3 +15,11 @@ export const confirmPayment = (id, data) => api.post(`/orders/${id}/confirm-paym
 export const shipOrder = (id, data) => api.post(`/orders/${id}/ship`, data)
 
 export const receiveOrder = (id, data) => api.post(`/orders/${id}/receive`, data)
+
+export const uploadVoucher = (orderId, file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post(`/orders/${orderId}/voucher`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
