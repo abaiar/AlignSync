@@ -212,7 +212,7 @@ export default function NewPurchaseOrderPage() {
                             : "flex h-4 w-4 items-center justify-center rounded-full border border-border"
                         }
                       >
-                        {isActive && <span className="h-1.5 w-1.5 rounded-full bg-black" />}
+                        {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                       </span>
                       <span className="text-sm font-medium text-fg-primary">{t.label}</span>
                     </button>
@@ -262,7 +262,7 @@ export default function NewPurchaseOrderPage() {
                             <span
                               className={
                                 isSelected
-                                  ? "flex h-5 w-5 shrink-0 items-center justify-center border border-accent bg-accent text-black"
+                                  ? "flex h-5 w-5 shrink-0 items-center justify-center border border-accent bg-accent text-white"
                                   : "flex h-5 w-5 shrink-0 items-center justify-center border border-border"
                               }
                             >

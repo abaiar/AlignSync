@@ -374,7 +374,7 @@ export default function PaymentDetailPage({
 
       {/* Confirm modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <div className="w-full max-w-md card">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="font-display text-sm font-bold uppercase tracking-wider">
@@ -425,7 +425,7 @@ export default function PaymentDetailPage({
 
       {/* Abnormal modal */}
       {showAbnormalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <div className="w-full max-w-md card">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="font-display text-sm font-bold uppercase tracking-wider">

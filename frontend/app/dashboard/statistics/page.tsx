@@ -99,21 +99,21 @@ function StatCard({ label, value, icon: Icon, tone }: StatCardProps) {
 }
 
 const CHART_COLORS = {
-  purchase: "#f59e0b",
-  production: "#58a6ff",
-  shipment: "#3fb950",
-  return: "#f85149",
+  purchase: "#d97706",    // amber-600 (was #f59e0b)
+  production: "#2563eb",  // blue-600 (was #58a6ff)
+  shipment: "#16a34a",    // green-600 (was #3fb950)
+  return: "#dc2626",      // red-600 (was #f85149)
 };
 
-const GRID_STROKE = "#30363d";
-const AXIS_STROKE = "#8b949e";
+const GRID_STROKE = "#e2e8f0";    // slate-200 (was #30363d)
+const AXIS_STROKE = "#475569";    // slate-600 (was #8b949e)
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#161b22",
+  backgroundColor: "#ffffff",     // white (was #161b22)
   border: `1px solid ${GRID_STROKE}`,
   borderRadius: "4px",
   fontSize: "12px",
-  color: "#e6edf3",
+  color: "#0f172a",               // slate-900 (was #e6edf3)
 };
 
 function formatNumber(n: number): string {
@@ -328,7 +328,7 @@ export default function StatisticsPage() {
                       />
                       <Tooltip
                         contentStyle={TOOLTIP_STYLE}
-                        cursor={{ fill: "rgba(245, 158, 11, 0.05)" }}
+                        cursor={{ fill: "rgba(217, 119, 6, 0.08)" }}
                       />
                       <Legend
                         wrapperStyle={{ fontSize: 12, color: AXIS_STROKE }}

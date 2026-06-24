@@ -54,7 +54,7 @@ export default function LoginPage() {
     <main className="grid min-h-screen grid-cols-1 lg:grid-cols-[1.2fr_1fr]">
       {/* Left — brand panel with blueprint grid */}
       <section className="grid-bg relative hidden flex-col justify-between overflow-hidden border-r border-border p-12 lg:flex">
-        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-slate-900/10" />
         <div className="relative">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center border border-accent/50 bg-accent/10">

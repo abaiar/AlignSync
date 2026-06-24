@@ -470,7 +470,7 @@ export default function PurchaseOrderDetailPage() {
       {/* Confirm modal */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
           onClick={() => !actionLoading && setConfirmOpen(false)}
         >
           <div
@@ -566,7 +566,7 @@ export default function PurchaseOrderDetailPage() {
       {/* Reject modal */}
       {rejectOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
           onClick={() => !actionLoading && setRejectOpen(false)}
         >
           <div

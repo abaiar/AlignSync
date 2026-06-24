@@ -263,7 +263,7 @@ export default function NewDevicePage() {
                           <span
                             className={
                               isSelected
-                                ? "flex h-5 w-5 shrink-0 items-center justify-center border border-accent bg-accent text-black"
+                                ? "flex h-5 w-5 shrink-0 items-center justify-center border border-accent bg-accent text-white"
                                 : "flex h-5 w-5 shrink-0 items-center justify-center border border-border"
                             }
                           >
