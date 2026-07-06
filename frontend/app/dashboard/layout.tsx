@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Crosshair,
   LayoutDashboard,
+  BarChart3,
   Camera,
   KeyRound,
   ClipboardList,
@@ -24,12 +25,15 @@ import { cn } from "@/lib/utils";
 interface NavItem {
   label: string;
   href: string;
-  permission: string;
+  permission?: string;
   icon: LucideIcon;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "统计概览", href: "/dashboard", permission: "statistics:view", icon: LayoutDashboard },
+  // 首页/落地页：对所有已登录用户始终可见，无权限门控
+  { label: "统计概览", href: "/dashboard", icon: LayoutDashboard },
+  // 统计汇总详情页：仍受 statistics:view 权限门控
+  { label: "统计汇总", href: "/dashboard/statistics", permission: "statistics:view", icon: BarChart3 },
   { label: "相机管理", href: "/dashboard/cameras", permission: "camera:view", icon: Camera },
   { label: "软件锁管理", href: "/dashboard/software-locks", permission: "software_lock:view", icon: KeyRound },
   { label: "采购管理", href: "/dashboard/purchase-orders", permission: "purchase_order:view", icon: ClipboardList },
@@ -57,9 +61,11 @@ export default function DashboardLayout({
     }
   }, [hydrated, token, router]);
 
+  // 无 permission 字段的项（如首页"统计概览"）对所有已登录用户始终可见；
+  // 有 permission 字段的项按权限门控过滤
   const visibleItems = useMemo(
-    () => NAV_ITEMS.filter((item) => hasPermission(item.permission)),
-    [hasPermission],
+    () => NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission)),
+    [hasPermission, user],
   );
 
   const activeItem = useMemo(() => {
