@@ -44,7 +44,7 @@ async def _require_core_tech_finance(db: AsyncSession, user: User) -> None:
             detail="仅核心技术方财务人员可操作付款",
         )
     role_names = await _get_user_role_names(db, user.id)
-    if "finance" not in role_names:
+    if "finance_staff" not in role_names:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="仅核心技术方财务人员可操作付款",

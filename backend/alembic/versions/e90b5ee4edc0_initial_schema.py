@@ -268,6 +268,7 @@ def upgrade() -> None:
         sa.Column('target_enterprise_id', sa.BigInteger(), nullable=False),
         sa.Column('shipped_by', sa.BigInteger(), nullable=False),
         sa.Column('shipped_at', sa.DateTime(), nullable=True),
+        sa.Column('received_at', sa.DateTime(), nullable=True),
         sa.Column('status', sa.String(length=50), nullable=True),
         sa.Column('remark', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),

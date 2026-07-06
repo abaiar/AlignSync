@@ -89,6 +89,7 @@ yarn-error.log*
 # Uploads (runtime data)
 backend/uploads/
 !backend/alembic/versions/.gitkeep
-
+.trae
 # Alembic
 *.sqlite3
+所学数据库内容.txt
