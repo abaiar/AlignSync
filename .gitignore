@@ -93,3 +93,7 @@ backend/uploads/
 # Alembic
 *.sqlite3
 所学数据库内容.txt
+
+# 课程设计报告（本地生成，不纳入版本控制）
+数据库课程设计报告.docx
+数据库课程设计报告.pdf
